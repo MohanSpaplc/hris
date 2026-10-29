@@ -1,0 +1,4407 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "HRIS Hiring API",
+        "description": "Login with `POST /auth/login`, copy the `token`, click **Authorize** and paste it.\n\nAll responses are JSON. Validation errors return 422, missing/expired token 401, no permission 403, rate limit 429.",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000/api/v1",
+            "description": "API server"
+        }
+    ],
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login and get an API token",
+                "operationId": "3d1aae0ea009e03fadebec819afd774e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "hr.admin@hris.local"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "Secret#Pass123"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "example": "chrome-web",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logged in",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token": {
+                                            "type": "string",
+                                            "example": "1|Xb3kQ9..."
+                                        },
+                                        "token_type": {
+                                            "type": "string",
+                                            "example": "Bearer"
+                                        },
+                                        "expires_at": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        },
+                                        "permissions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "example": [
+                                                "users.view",
+                                                "users.create"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Account inactive",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Your account is inactive. Contact HR."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid credentials",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                },
+                                "example": {
+                                    "message": "These credentials do not match our records.",
+                                    "errors": {
+                                        "email": [
+                                            "These credentials do not match our records."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Current logged-in user with permissions",
+                "operationId": "1482ae868da3ac9ed15d4972dc1724ec",
+                "responses": {
+                    "200": {
+                        "description": "Current user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        },
+                                        "permissions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "example": [
+                                                "users.view"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout (revoke the current token)",
+                "operationId": "0f604af450f66d99a17c511d6067a1c9",
+                "responses": {
+                    "200": {
+                        "description": "Logged out",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Logged out successfully."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/auth/logout-all": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout from all devices (revoke every token)",
+                "operationId": "17ed63e95800560d34dac00a0c50ae58",
+                "responses": {
+                    "200": {
+                        "description": "Logged out everywhere",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Logged out from all devices."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/auth/change-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Change own password (other devices are logged out)",
+                "operationId": "000615dea47b4e76d90368283f7d5ca5",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "Secret#Pass123"
+                                    },
+                                    "password": {
+                                        "description": "Min 10 chars with upper and lower case, number and symbol",
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "N3w-Secure#Pass"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "N3w-Secure#Pass"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password changed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Password changed successfully."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/auth/forgot-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Send a password reset link by email",
+                "description": "Always returns the same message, whether or not the email exists.",
+                "operationId": "32c7132acf1f5a7fd779213a1730c740",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ravi.kumar@company.com"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Request accepted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "If an account exists for this email, a password reset link has been sent."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/auth/reset-password": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Set a new password using the token from the email link",
+                "description": "The reset link opens `FRONTEND_URL/reset-password?token=...&email=...`. Token is valid for 30 minutes. All devices are logged out.",
+                "operationId": "e5496cce5bbff16f72e90741ee471627",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "token",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "token": {
+                                        "type": "string",
+                                        "example": "5f2b8c1e9a..."
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ravi.kumar@company.com"
+                                    },
+                                    "password": {
+                                        "description": "Min 10 chars with upper and lower case, number and symbol",
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "N3w-Secure#Pass"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "N3w-Secure#Pass"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Password reset",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Your password has been reset."
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid/expired token or weak password",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                },
+                                "example": {
+                                    "message": "This password reset token is invalid.",
+                                    "errors": {
+                                        "email": [
+                                            "This password reset token is invalid."
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/clients": {
+            "get": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "List clients",
+                "operationId": "6536f8d22d25758c3e14dbbe8e228af0",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Search"
+                    },
+                    {
+                        "$ref": "#/components/parameters/StatusFilter"
+                    },
+                    {
+                        "name": "country_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "$ref": "#/components/parameters/Sort"
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated clients",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Client"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Create a client",
+                "operationId": "74a35b85418e09c2489915865dd22445",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ClientRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Client"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}": {
+            "get": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Client details",
+                "operationId": "e4b319411d87183300ab1efcfcad124b",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Client"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Update a client (send only changed fields)",
+                "operationId": "01a0e98b651c8cda71034d93d40b8b27",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ClientRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Client"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Delete a client and its managers (soft delete)",
+                "operationId": "ed21785e71ab67958cf6216b6cf263a3",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Client deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/clients/{client}/logo": {
+            "post": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Upload or replace the client logo",
+                "description": "multipart/form-data. JPG, PNG or WEBP, max 1 MB, max 2000×2000 px. The old logo file is deleted.",
+                "operationId": "d5e0338a51ca52e69c9ab648bf885ded",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "logo"
+                                ],
+                                "properties": {
+                                    "logo": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Logo saved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Client"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Remove the client logo",
+                "operationId": "74394c41487efa869e1afb95c02fe1b4",
+                "parameters": [
+                    {
+                        "name": "client",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Logo removed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Client"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/client-managers": {
+            "get": {
+                "tags": [
+                    "Client Managers"
+                ],
+                "summary": "List client managers",
+                "operationId": "891427bafcbe842bd711eb4278ba14b3",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Search"
+                    },
+                    {
+                        "$ref": "#/components/parameters/StatusFilter"
+                    },
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "description": "Managers of one client (for dropdowns)",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "$ref": "#/components/parameters/Sort"
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated client managers",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ClientManager"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Client Managers"
+                ],
+                "summary": "Create a client manager",
+                "operationId": "a958f5e5f013d08f1772ae550e47aff6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ClientManagerRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ClientManager"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/client-managers/{client_manager}": {
+            "get": {
+                "tags": [
+                    "Client Managers"
+                ],
+                "summary": "Client manager details",
+                "operationId": "a1ce77a9c1011929e7a431fd18be7530",
+                "parameters": [
+                    {
+                        "name": "client_manager",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Client manager",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ClientManager"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Client Managers"
+                ],
+                "summary": "Update a client manager (send only changed fields)",
+                "operationId": "ad2eb15058026fdc1c4797bbef8957ba",
+                "parameters": [
+                    {
+                        "name": "client_manager",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ClientManagerRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ClientManager"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Client Managers"
+                ],
+                "summary": "Delete a client manager (soft delete)",
+                "operationId": "9af5477f06ebe016c2c23046eb24d3cc",
+                "parameters": [
+                    {
+                        "name": "client_manager",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Client manager deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/countries": {
+            "get": {
+                "tags": [
+                    "Countries"
+                ],
+                "summary": "List countries",
+                "operationId": "87b1e43e1fee480e4db58b462bf951c0",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Search"
+                    },
+                    {
+                        "$ref": "#/components/parameters/StatusFilter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Sort"
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated countries",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Country"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Countries"
+                ],
+                "summary": "Create a country",
+                "operationId": "c855ee3ac53d7e4f10ec9dbebb7e0848",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CountryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Country"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/countries/{country}": {
+            "get": {
+                "tags": [
+                    "Countries"
+                ],
+                "summary": "Country details",
+                "operationId": "d877dacd97552783d77c13175ca12359",
+                "parameters": [
+                    {
+                        "name": "country",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Country",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Country"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Countries"
+                ],
+                "summary": "Update a country (send only changed fields)",
+                "operationId": "fb493b6cbeb11b3d5413375bb601d9cd",
+                "parameters": [
+                    {
+                        "name": "country",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CountryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Country"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Countries"
+                ],
+                "summary": "Delete a country (only if no client uses it)",
+                "operationId": "ef7ca86e7f19f7a4ae92f837a1a6941e",
+                "parameters": [
+                    {
+                        "name": "country",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Country deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/InUse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/jobs": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "List jobs",
+                "operationId": "907b2a10769dc729b213f916f0ed7a36",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Job title or job code",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "status_id",
+                        "in": "query",
+                        "description": "Status of module \"job\"",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "client_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "country_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "practice_area_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "recruiter_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "priority",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "low",
+                                "medium",
+                                "high",
+                                "urgent"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "job_type",
+                        "in": "query",
+                        "description": "internal or client",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "internal",
+                                "client"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "`latest` (default) or `title`",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "latest",
+                                "title"
+                            ]
+                        }
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated jobs",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Job"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Create a job",
+                "description": "job_code is generated as {country ISO3}-{practice code}-{00001}, e.g. IND-JAVA-00001, numbered per country + practice. It does not change if the job is later edited. Status defaults to Draft. New skill names are added to the skill master.",
+                "operationId": "e84c2e4f7acfc80a8a8df2618dfd7cd4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/JobRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ServerError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/jobs/{job}": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Job details",
+                "operationId": "f412f3d76e1de376e94cb71e29badf13",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Job",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Update a job (send only changed fields)",
+                "description": "Arrays (skills, recruiter_ids, vendor_ids) replace the current list when sent. Setting a final status (closed / filled / cancelled) sets closed_at.",
+                "operationId": "3cbf813046a26bc63a59a393e5261277",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/JobRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ServerError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Delete a job (soft delete)",
+                "operationId": "e923ffa083f6888f16ac9519a862b5c2",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Job deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ServerError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/jobs/parse-jd": {
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Read a JD file and suggest job form values",
+                "description": "multipart/form-data with `file` (PDF, DOCX, XLSX or TXT, max 5 MB). Nothing is saved. Returns the description as safe HTML and the fields that could be matched.",
+                "operationId": "cc79d564c81a68507ca4cb0a46ee8111",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Suggestions",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "data": {
+                                        "job_description": "<h3>Responsibilities</h3><ul><li>Build Spring Boot services</li></ul>",
+                                        "fields": {
+                                            "job_title": "Senior Java Developer",
+                                            "total_experience": 5,
+                                            "relevant_experience": 3,
+                                            "work_location": "Bengaluru",
+                                            "work_mode": "hybrid",
+                                            "employment_type": "full_time",
+                                            "no_of_positions": 2,
+                                            "budget_min": 1800000,
+                                            "budget_max": 2400000,
+                                            "primary_skills": [
+                                                "Java",
+                                                "Spring Boot"
+                                            ],
+                                            "secondary_skills": [
+                                                "Kafka"
+                                            ],
+                                            "country_id": 1,
+                                            "practice_area_id": 1
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "description": "Wrong type, too large, or no readable text",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ServerError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/jobs/{job}/jd-file": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Download the JD file",
+                "operationId": "f165d5d96d94424a4378a674dbcba661",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The file"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Attach (or replace) the JD file of a job",
+                "operationId": "9ba5ccdb10a80b1d120e48844ba4627b",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "required": [
+                                    "file"
+                                ],
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Saved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Job"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ServerError"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "Remove the JD file",
+                "operationId": "a3c9055bdf78fbff8337539f283c6824",
+                "parameters": [
+                    {
+                        "name": "job",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Removed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "JD file removed."
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/jobs/form-options": {
+            "get": {
+                "tags": [
+                    "Jobs"
+                ],
+                "summary": "All dropdown data for job screens in one request",
+                "description": "Active countries, practice areas, clients, vendors (A–Z), job statuses, and active users when the caller may view users. Replaces 7 separate list calls.",
+                "operationId": "2839b9bea4f3cf4842b485e1a7ca8790",
+                "responses": {
+                    "200": {
+                        "description": "Options",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "data": {
+                                        "job_statuses": [
+                                            {
+                                                "id": 4,
+                                                "code": "draft",
+                                                "name": "Draft",
+                                                "color": "secondary",
+                                                "is_final": false
+                                            }
+                                        ],
+                                        "countries": [
+                                            {
+                                                "id": 1,
+                                                "name": "India",
+                                                "code": "IN",
+                                                "currency_code": "INR"
+                                            }
+                                        ],
+                                        "practice_areas": [
+                                            {
+                                                "id": 1,
+                                                "name": "Java & Microservices",
+                                                "code": "JAVA"
+                                            }
+                                        ],
+                                        "clients": [
+                                            {
+                                                "id": 1,
+                                                "name": "Northwind Technologies Pvt Ltd",
+                                                "country": {
+                                                    "id": 1,
+                                                    "name": "India",
+                                                    "code": "IN"
+                                                }
+                                            }
+                                        ],
+                                        "vendors": [
+                                            {
+                                                "id": 1,
+                                                "name": "TalentBridge Staffing Solutions",
+                                                "contact_person": "Rohit Desai"
+                                            }
+                                        ],
+                                        "users": [
+                                            {
+                                                "id": 1,
+                                                "first_name": "HR",
+                                                "last_name": "Admin",
+                                                "role": {
+                                                    "name": "HR"
+                                                }
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/practice-areas": {
+            "get": {
+                "tags": [
+                    "Practice Areas"
+                ],
+                "summary": "List practice areas",
+                "operationId": "bc0491d22d09302c85a420cb25d9f65b",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Search"
+                    },
+                    {
+                        "$ref": "#/components/parameters/StatusFilter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Sort"
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated practice areas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PracticeArea"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Practice Areas"
+                ],
+                "summary": "Create a practice area",
+                "operationId": "81a17e98582f63b6b5ab7c94d8f2fe78",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PracticeAreaRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PracticeArea"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/practice-areas/{practice_area}": {
+            "get": {
+                "tags": [
+                    "Practice Areas"
+                ],
+                "summary": "Practice area details",
+                "operationId": "0a73919b519c01a964dd0fe4af805ca4",
+                "parameters": [
+                    {
+                        "name": "practice_area",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Practice area",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PracticeArea"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Practice Areas"
+                ],
+                "summary": "Update a practice area (send only changed fields)",
+                "operationId": "a6c2b39fc6ecdbce313a3fa9a8d233a7",
+                "parameters": [
+                    {
+                        "name": "practice_area",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PracticeAreaRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PracticeArea"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Practice Areas"
+                ],
+                "summary": "Delete a practice area",
+                "operationId": "4221a6b397ce531067a78d7037026b37",
+                "parameters": [
+                    {
+                        "name": "practice_area",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Practice area deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/roles": {
+            "get": {
+                "tags": [
+                    "Roles"
+                ],
+                "summary": "List roles (for user form dropdown)",
+                "operationId": "a54b004ebbd6168338f4feed2095aa40",
+                "responses": {
+                    "200": {
+                        "description": "Roles",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "data": [
+                                        {
+                                            "id": 1,
+                                            "name": "HR",
+                                            "code": "hr",
+                                            "status_id": 1,
+                                            "status": {
+                                                "id": 1,
+                                                "code": "active",
+                                                "name": "Active"
+                                            }
+                                        },
+                                        {
+                                            "id": 2,
+                                            "name": "TAG Manager",
+                                            "code": "tag_manager",
+                                            "status_id": 1,
+                                            "status": {
+                                                "id": 1,
+                                                "code": "active",
+                                                "name": "Active"
+                                            }
+                                        },
+                                        {
+                                            "id": 3,
+                                            "name": "TAG Team",
+                                            "code": "tag_team",
+                                            "status_id": 1,
+                                            "status": {
+                                                "id": 1,
+                                                "code": "active",
+                                                "name": "Active"
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/skills": {
+            "get": {
+                "tags": [
+                    "Skills"
+                ],
+                "summary": "Active skills for autocomplete (max 50)",
+                "operationId": "abc589672de509c5e1ae0eb9f43d7f65",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "example": "ja"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Skills",
+                        "content": {
+                            "application/json": {
+                                "schema": {},
+                                "example": {
+                                    "data": [
+                                        {
+                                            "id": 1,
+                                            "name": "Java"
+                                        },
+                                        {
+                                            "id": 7,
+                                            "name": "JavaScript"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/statuses": {
+            "get": {
+                "tags": [
+                    "Statuses"
+                ],
+                "summary": "Active statuses of one module (for status dropdowns)",
+                "operationId": "d16c30a3988d26e30d966f839b0268e3",
+                "parameters": [
+                    {
+                        "name": "module",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "general"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Statuses",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Status"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/users": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "List users (paginated)",
+                "description": "Permission: `users.view` (HR, TAG Manager).",
+                "operationId": "7208c29037df2b8bb02499ba39ed8a78",
+                "parameters": [
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Name or email",
+                        "schema": {
+                            "type": "string",
+                            "example": "ravi"
+                        }
+                    },
+                    {
+                        "name": "role_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 3
+                        }
+                    },
+                    {
+                        "name": "status_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "default": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated users",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/User"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "example": {
+                                                "current_page": 1,
+                                                "last_page": 1,
+                                                "per_page": 15,
+                                                "total": 3
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Create a user (HR only)",
+                "description": "Permission: `users.create`. No password is sent — the user receives an email link to set it. New users are always Active.",
+                "operationId": "262eb5ca1fdea354023c0a8870442c1e",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "first_name",
+                                    "email",
+                                    "role_id"
+                                ],
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Ravi",
+                                        "maxLength": 100
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Kumar",
+                                        "nullable": true,
+                                        "maxLength": 100
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "ravi.kumar@company.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+91 9876543210",
+                                        "nullable": true
+                                    },
+                                    "role_id": {
+                                        "description": "From GET /roles",
+                                        "type": "integer",
+                                        "example": 3
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "User created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "User created. A link to set the password has been emailed."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/users/{user}": {
+            "get": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "User details",
+                "description": "Permission: `users.view`, or any user viewing their own profile.",
+                "operationId": "a8a7a1f979a2abb839b4b320238106fc",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/UserId"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update a user (HR only)",
+                "description": "Permission: `users.update`. Send only the fields to change. You cannot change your own role or status. Changing role/status logs the user out of all devices.",
+                "operationId": "4ac3faef1359369686fdd433daad2bee",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/UserId"
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "first_name": {
+                                        "type": "string",
+                                        "example": "Ravi",
+                                        "maxLength": 100
+                                    },
+                                    "last_name": {
+                                        "type": "string",
+                                        "example": "Kumar",
+                                        "nullable": true,
+                                        "maxLength": 100
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+91 9876543210",
+                                        "nullable": true
+                                    },
+                                    "role_id": {
+                                        "description": "From GET /roles",
+                                        "type": "integer",
+                                        "example": 2
+                                    },
+                                    "status_id": {
+                                        "description": "A status of module \"general\" (active / inactive)",
+                                        "type": "integer",
+                                        "example": 2
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete a user (HR only)",
+                "description": "Permission: `users.delete`. Soft delete: user is set inactive and all tokens are revoked. You cannot delete yourself.",
+                "operationId": "371ba09bb6d4a95792dd93040f8812b3",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/UserId"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "User deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/vendors": {
+            "get": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "List vendors",
+                "operationId": "c03417c69027eca4e5ba37f38c438edb",
+                "parameters": [
+                    {
+                        "$ref": "#/components/parameters/Search"
+                    },
+                    {
+                        "$ref": "#/components/parameters/StatusFilter"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Sort"
+                    },
+                    {
+                        "$ref": "#/components/parameters/PerPage"
+                    },
+                    {
+                        "$ref": "#/components/parameters/Page"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated vendors",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Vendor"
+                                            }
+                                        },
+                                        "links": {
+                                            "type": "object"
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "Create a vendor",
+                "operationId": "e88e088a8fc2d4a3d00ad64f6be47a5c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VendorRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Vendor"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/vendors/{vendor}": {
+            "get": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "Vendor details",
+                "operationId": "7b7771ee37eb11b3f67aed3d46242ce6",
+                "parameters": [
+                    {
+                        "name": "vendor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Vendor",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Vendor"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "Update a vendor (send only changed fields)",
+                "operationId": "787cd4a4869f8df4770c9820bb560a75",
+                "parameters": [
+                    {
+                        "name": "vendor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VendorRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Vendor"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationFailed"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Vendors"
+                ],
+                "summary": "Delete a vendor (soft delete)",
+                "operationId": "96d4d39a14b3d20abe2e1798c1b762bb",
+                "parameters": [
+                    {
+                        "name": "vendor",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                },
+                                "example": {
+                                    "message": "Vendor deleted."
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthenticated"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/Forbidden"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/NotFound"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "PaginationMeta": {
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "last_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 15
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 5
+                    }
+                },
+                "type": "object"
+            },
+            "User": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "first_name": {
+                        "type": "string",
+                        "example": "Ravi"
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "example": "Kumar",
+                        "nullable": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "ravi.kumar@company.com"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 9876543210",
+                        "nullable": true
+                    },
+                    "role": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 3
+                            },
+                            "code": {
+                                "type": "string",
+                                "example": "tag_team",
+                                "enum": [
+                                    "hr",
+                                    "tag_manager",
+                                    "tag_team"
+                                ]
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "TAG Team"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "status": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "code": {
+                                "type": "string",
+                                "example": "active"
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Active"
+                            },
+                            "color": {
+                                "type": "string",
+                                "example": "success"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "last_login_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Message": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "Operation successful."
+                    }
+                },
+                "type": "object"
+            },
+            "ValidationError": {
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "example": "The email field is required."
+                    },
+                    "errors": {
+                        "type": "object",
+                        "example": {
+                            "email": [
+                                "The email field is required."
+                            ]
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "JobRequest": {
+                "required": [
+                    "country_id",
+                    "practice_area_id",
+                    "job_title"
+                ],
+                "properties": {
+                    "job_title": {
+                        "type": "string",
+                        "example": "Senior Java Developer",
+                        "maxLength": 200
+                    },
+                    "country_id": {
+                        "description": "Active country",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "client_id": {
+                        "description": "Active client. null = internal job",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "client_manager_id": {
+                        "description": "Must belong to client_id",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "practice_area_id": {
+                        "description": "Active practice area",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "total_experience": {
+                        "description": "Years, 0–60",
+                        "type": "number",
+                        "example": 6,
+                        "nullable": true
+                    },
+                    "relevant_experience": {
+                        "description": "Years, ≤ total_experience",
+                        "type": "number",
+                        "example": 4,
+                        "nullable": true
+                    },
+                    "budget_min": {
+                        "type": "number",
+                        "example": 1800000,
+                        "nullable": true
+                    },
+                    "budget_max": {
+                        "description": "≥ budget_min",
+                        "type": "number",
+                        "example": 2400000,
+                        "nullable": true
+                    },
+                    "budget_currency_code": {
+                        "description": "Optional: defaults to the country's currency when a budget is given",
+                        "type": "string",
+                        "example": "INR",
+                        "nullable": true,
+                        "maxLength": 3
+                    },
+                    "requirement_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-11-15",
+                        "nullable": true
+                    },
+                    "contract_duration": {
+                        "type": "string",
+                        "example": "12 months",
+                        "nullable": true
+                    },
+                    "work_mode": {
+                        "type": "string",
+                        "example": "hybrid",
+                        "nullable": true,
+                        "enum": [
+                            "onsite",
+                            "remote",
+                            "hybrid"
+                        ]
+                    },
+                    "work_location": {
+                        "type": "string",
+                        "example": "Bengaluru",
+                        "nullable": true
+                    },
+                    "employment_type": {
+                        "type": "string",
+                        "example": "full_time",
+                        "nullable": true,
+                        "enum": [
+                            "full_time",
+                            "contract",
+                            "c2h",
+                            "intern"
+                        ]
+                    },
+                    "no_of_positions": {
+                        "type": "integer",
+                        "example": 2,
+                        "maximum": 1000,
+                        "minimum": 1
+                    },
+                    "priority": {
+                        "type": "string",
+                        "example": "high",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high",
+                            "urgent"
+                        ]
+                    },
+                    "notice_period_days": {
+                        "type": "integer",
+                        "example": 30,
+                        "nullable": true,
+                        "maximum": 365
+                    },
+                    "job_description": {
+                        "description": "Rich text HTML (CKEditor). Unsafe tags/attributes are removed.",
+                        "type": "string",
+                        "example": "<p>Build and maintain <strong>Spring Boot</strong> microservices.</p>",
+                        "nullable": true,
+                        "maxLength": 60000
+                    },
+                    "primary_skills": {
+                        "description": "Skill names; new ones are added to the skill master",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "Java",
+                            "Spring Boot"
+                        ]
+                    },
+                    "secondary_skills": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "Kafka",
+                            "Docker"
+                        ]
+                    },
+                    "recruiter_ids": {
+                        "description": "Active users",
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": [
+                            1
+                        ]
+                    },
+                    "primary_recruiter_id": {
+                        "description": "One of recruiter_ids",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "vendor_ids": {
+                        "description": "Active vendors",
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "example": [
+                            1,
+                            2
+                        ]
+                    },
+                    "status_id": {
+                        "description": "Status of module \"job\". Defaults to Draft.",
+                        "type": "integer",
+                        "example": 4,
+                        "nullable": true
+                    },
+                    "closed_reason": {
+                        "type": "string",
+                        "example": null,
+                        "nullable": true,
+                        "maxLength": 255
+                    }
+                },
+                "type": "object"
+            },
+            "ClientManagerRequest": {
+                "required": [
+                    "client_id",
+                    "name"
+                ],
+                "properties": {
+                    "client_id": {
+                        "description": "Active client",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Meera Joshi",
+                        "maxLength": 200
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "meera.joshi@northwind.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 98450 11111",
+                        "nullable": true
+                    },
+                    "status_id": {
+                        "description": "Status of module \"general\". Defaults to Active.",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ClientRequest": {
+                "required": [
+                    "country_id",
+                    "name"
+                ],
+                "properties": {
+                    "country_id": {
+                        "description": "Active country",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Northwind Technologies Pvt Ltd",
+                        "maxLength": 200
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "contact@northwind.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 80 4000 1000",
+                        "nullable": true
+                    },
+                    "address": {
+                        "type": "string",
+                        "example": "Whitefield, Bengaluru, Karnataka 560066",
+                        "nullable": true,
+                        "maxLength": 1000
+                    },
+                    "status_id": {
+                        "description": "Status of module \"general\". Defaults to Active.",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "CountryRequest": {
+                "required": [
+                    "name",
+                    "code"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "India",
+                        "maxLength": 150
+                    },
+                    "code": {
+                        "description": "ISO 3166-1 alpha-2",
+                        "type": "string",
+                        "example": "IN",
+                        "maxLength": 2
+                    },
+                    "iso3_code": {
+                        "description": "ISO 3166-1 alpha-3, used in job codes (IND-JAVA-00001)",
+                        "type": "string",
+                        "example": "IND",
+                        "nullable": true,
+                        "maxLength": 3
+                    },
+                    "flag": {
+                        "type": "string",
+                        "example": "🇮🇳",
+                        "nullable": true
+                    },
+                    "currency_code": {
+                        "description": "ISO 4217",
+                        "type": "string",
+                        "example": "INR",
+                        "nullable": true,
+                        "maxLength": 3
+                    },
+                    "currency_name": {
+                        "type": "string",
+                        "example": "Indian Rupee",
+                        "nullable": true
+                    },
+                    "currency_symbol": {
+                        "type": "string",
+                        "example": "₹",
+                        "nullable": true
+                    },
+                    "dial_code": {
+                        "type": "string",
+                        "example": "+91",
+                        "nullable": true
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Asia/Kolkata",
+                        "nullable": true
+                    },
+                    "status_id": {
+                        "description": "Status of module \"general\". Defaults to Active.",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "PracticeAreaRequest": {
+                "required": [
+                    "name",
+                    "code"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "Java & Microservices",
+                        "maxLength": 150
+                    },
+                    "code": {
+                        "description": "Letters, numbers, dash, underscore",
+                        "type": "string",
+                        "example": "JAVA",
+                        "maxLength": 50
+                    },
+                    "head_id": {
+                        "description": "Active user who heads this practice",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    },
+                    "status_id": {
+                        "description": "Status of module \"general\". Defaults to Active.",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "VendorRequest": {
+                "required": [
+                    "name"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "example": "TalentBridge Staffing Solutions",
+                        "maxLength": 200
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "accounts@talentbridge.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 22 6100 2000",
+                        "nullable": true
+                    },
+                    "contact_person": {
+                        "type": "string",
+                        "example": "Rohit Desai",
+                        "nullable": true,
+                        "maxLength": 200
+                    },
+                    "status_id": {
+                        "description": "Status of module \"general\". Defaults to Active.",
+                        "type": "integer",
+                        "example": 1,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ClientManager": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Meera Joshi"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "meera.joshi@northwind.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 98450 11111",
+                        "nullable": true
+                    },
+                    "client": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Northwind Technologies Pvt Ltd"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Client": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Northwind Technologies Pvt Ltd"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "contact@northwind.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 80 4000 1000",
+                        "nullable": true
+                    },
+                    "address": {
+                        "type": "string",
+                        "example": "Whitefield, Bengaluru",
+                        "nullable": true
+                    },
+                    "logo_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "example": "http://localhost:8000/storage/client-logos/abc123.png",
+                        "nullable": true
+                    },
+                    "country": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "India"
+                            },
+                            "code": {
+                                "type": "string",
+                                "example": "IN"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "managers_count": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "created_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "HR Admin"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Country": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "India"
+                    },
+                    "code": {
+                        "type": "string",
+                        "example": "IN"
+                    },
+                    "iso3_code": {
+                        "type": "string",
+                        "example": "IND",
+                        "nullable": true
+                    },
+                    "flag": {
+                        "type": "string",
+                        "example": "🇮🇳",
+                        "nullable": true
+                    },
+                    "currency_code": {
+                        "type": "string",
+                        "example": "INR",
+                        "nullable": true
+                    },
+                    "currency_name": {
+                        "type": "string",
+                        "example": "Indian Rupee",
+                        "nullable": true
+                    },
+                    "currency_symbol": {
+                        "type": "string",
+                        "example": "₹",
+                        "nullable": true
+                    },
+                    "dial_code": {
+                        "type": "string",
+                        "example": "+91",
+                        "nullable": true
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "Asia/Kolkata",
+                        "nullable": true
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "clients_count": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Job": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "job_code": {
+                        "type": "string",
+                        "example": "JOB-2026-00001"
+                    },
+                    "job_title": {
+                        "type": "string",
+                        "example": "Senior Java Developer"
+                    },
+                    "is_internal": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "country": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "code": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "client": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "logo_url": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "client_manager": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "email": {
+                                "type": "string",
+                                "nullable": true
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "practice_area": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "code": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "total_experience": {
+                        "type": "string",
+                        "example": "6.0",
+                        "nullable": true
+                    },
+                    "relevant_experience": {
+                        "type": "string",
+                        "example": "4.0",
+                        "nullable": true
+                    },
+                    "budget_min": {
+                        "type": "string",
+                        "example": "1800000.00",
+                        "nullable": true
+                    },
+                    "budget_max": {
+                        "type": "string",
+                        "example": "2400000.00",
+                        "nullable": true
+                    },
+                    "budget_currency_code": {
+                        "type": "string",
+                        "example": "INR",
+                        "nullable": true
+                    },
+                    "requirement_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2026-11-15",
+                        "nullable": true
+                    },
+                    "contract_duration": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "work_mode": {
+                        "type": "string",
+                        "example": "hybrid",
+                        "nullable": true
+                    },
+                    "work_location": {
+                        "type": "string",
+                        "example": "Bengaluru",
+                        "nullable": true
+                    },
+                    "employment_type": {
+                        "type": "string",
+                        "example": "full_time",
+                        "nullable": true
+                    },
+                    "no_of_positions": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "positions_filled": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "priority": {
+                        "type": "string",
+                        "example": "high"
+                    },
+                    "notice_period_days": {
+                        "type": "integer",
+                        "example": 30,
+                        "nullable": true
+                    },
+                    "job_description": {
+                        "description": "Sanitized HTML",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "jd_file": {
+                        "description": "Download with GET /jobs/{id}/jd-file",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "example": "Java-Developer-JD.pdf"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "primary_skills": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "Java",
+                            "Spring Boot"
+                        ]
+                    },
+                    "secondary_skills": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "Kafka"
+                        ]
+                    },
+                    "recruiters": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "is_primary": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "vendors": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "closed_reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_by": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "PracticeArea": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Java & Microservices"
+                    },
+                    "code": {
+                        "type": "string",
+                        "example": "JAVA"
+                    },
+                    "head": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "HR Admin"
+                            },
+                            "email": {
+                                "type": "string",
+                                "example": "hr.admin@hris.local"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Status": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "code": {
+                        "type": "string",
+                        "example": "active"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Active"
+                    },
+                    "color": {
+                        "type": "string",
+                        "example": "success"
+                    }
+                },
+                "type": "object"
+            },
+            "Vendor": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "TalentBridge Staffing Solutions"
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "accounts@talentbridge.example",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "+91 22 6100 2000",
+                        "nullable": true
+                    },
+                    "contact_person": {
+                        "type": "string",
+                        "example": "Rohit Desai",
+                        "nullable": true
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/Status"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "responses": {
+            "ServerError": {
+                "description": "Unexpected server error (details are logged, not returned)",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "Could not save the job. Please try again."
+                        }
+                    }
+                }
+            },
+            "InUse": {
+                "description": "Record is still used by other records",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "This record is in use. Mark it inactive instead."
+                        }
+                    }
+                }
+            },
+            "Unauthenticated": {
+                "description": "Missing, invalid or expired token",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "Unauthenticated."
+                        }
+                    }
+                }
+            },
+            "Forbidden": {
+                "description": "No permission or inactive account",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "This action is unauthorized."
+                        }
+                    }
+                }
+            },
+            "NotFound": {
+                "description": "Record not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "Record not found."
+                        }
+                    }
+                }
+            },
+            "ValidationFailed": {
+                "description": "Validation error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/ValidationError"
+                        }
+                    }
+                }
+            },
+            "TooManyRequests": {
+                "description": "Rate limit exceeded",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "example": {
+                            "message": "Too Many Attempts."
+                        }
+                    }
+                }
+            }
+        },
+        "parameters": {
+            "Search": {
+                "name": "search",
+                "in": "query",
+                "description": "Search by name (and code / email where available)",
+                "schema": {
+                    "type": "string",
+                    "maxLength": 100
+                }
+            },
+            "StatusFilter": {
+                "name": "status_id",
+                "in": "query",
+                "description": "Filter by status id (module \"general\")",
+                "schema": {
+                    "type": "integer",
+                    "example": 1
+                }
+            },
+            "PerPage": {
+                "name": "per_page",
+                "in": "query",
+                "schema": {
+                    "type": "integer",
+                    "default": 15,
+                    "maximum": 100,
+                    "minimum": 1
+                }
+            },
+            "Sort": {
+                "name": "sort",
+                "in": "query",
+                "description": "`latest` (default, newest first) or `name` (A–Z)",
+                "schema": {
+                    "type": "string",
+                    "default": "latest",
+                    "enum": [
+                        "latest",
+                        "name"
+                    ]
+                }
+            },
+            "Page": {
+                "name": "page",
+                "in": "query",
+                "schema": {
+                    "type": "integer",
+                    "default": 1,
+                    "minimum": 1
+                }
+            },
+            "UserId": {
+                "name": "user",
+                "in": "path",
+                "description": "User id",
+                "required": true,
+                "schema": {
+                    "type": "integer",
+                    "example": 2
+                }
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "description": "Paste the token returned by /auth/login",
+                "bearerFormat": "Sanctum token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Login, logout, password management"
+        },
+        {
+            "name": "Users",
+            "description": "User management (HR)"
+        },
+        {
+            "name": "Roles",
+            "description": "Role master"
+        },
+        {
+            "name": "Statuses",
+            "description": "Status master (for dropdowns)"
+        },
+        {
+            "name": "Countries",
+            "description": "Country master"
+        },
+        {
+            "name": "Practice Areas",
+            "description": "Practice area master"
+        },
+        {
+            "name": "Clients",
+            "description": "Client master"
+        },
+        {
+            "name": "Client Managers",
+            "description": "Client manager master"
+        },
+        {
+            "name": "Vendors",
+            "description": "Vendor master"
+        },
+        {
+            "name": "Jobs",
+            "description": "Job openings / requirements"
+        },
+        {
+            "name": "Skills",
+            "description": "Skill master (autocomplete)"
+        }
+    ]
+}

@@ -1,0 +1,530 @@
+HRIS RECRUITMENT / HIRING MODULE
+Database Design — MySQL / Laravel
+Version: 2.0 (status master + offer letter + hiring stages)
+
+Scope
+-----
+Hiring process only: jobs -> candidates/resumes -> applications -> stages -> interviews -> offers/offer letters -> joining.
+Timesheet, leave, salary revisions, designation history and employee management are OUT of scope
+(moved to a separate Employee module document).
+
+General conventions
+-------------------
+- BIGINT UNSIGNED AUTO_INCREMENT primary key named id.
+- InnoDB, utf8mb4 / utf8mb4_unicode_ci.
+- created_at / updated_at on all tables; deleted_at only where noted.
+- Files in private storage; DB stores the path only.
+- Index every FK and commonly searched column.
+- Laravel migrations are the source of truth. Create in a NEW development database.
+- Delete rules: RESTRICT for history/transactional data, SET NULL for optional references. No broad CASCADE
+  (CASCADE allowed only for pure child rows, e.g. candidate_skills, offer_salary_components).
+- Passwords hashed by Laravel.
+- Money columns always have a currency_code next to them.
+
+=====================================================================
+STATUS MASTER
+=====================================================================
+Every table that has a status uses status_id -> statuses.id instead of a TINYINT/VARCHAR status.
+Statuses are grouped by `module`, so each table only allows statuses of its own module
+(enforce in Laravel validation: Rule::exists('statuses','id')->where('module', '<module>')).
+
+0. statuses
+-----------
+- id: BIGINT UNSIGNED, PK, AUTO_INCREMENT
+- module: VARCHAR(50), NOT NULL (see module list below)
+- code: VARCHAR(50), NOT NULL (machine value used in code, e.g. 'open', 'accepted')
+- name: VARCHAR(100), NOT NULL (display label, e.g. 'Open', 'Offer Accepted')
+- color: VARCHAR(20), NULL (badge colour, e.g. 'success', '#28a745')
+- sort_order: SMALLINT UNSIGNED, NOT NULL, DEFAULT 0
+- is_default: TINYINT(1), NOT NULL, DEFAULT 0 (default status for new records of this module)
+- is_final: TINYINT(1), NOT NULL, DEFAULT 0 (terminal status; record can no longer change)
+- is_active: TINYINT(1), NOT NULL, DEFAULT 1
+- created_at, updated_at: TIMESTAMP, NULL
+- UNIQUE (module, code)
+- INDEX (module, is_active)
+- Note: is_active is a plain flag here (the status table cannot reference itself).
+
+Seed data (module -> codes)
+---------------------------
+general            : active, inactive
+                     (used by roles, users, countries, practice_areas, clients, client_managers,
+                      vendors, skills, hiring_stages, offer_letter_templates)
+job                : draft, open, on_hold, closed, filled, cancelled
+candidate          : active, blacklisted, placed, inactive
+document           : pending_verification, verified, rejected
+application        : active, on_hold, rejected, withdrawn, hired
+interview          : scheduled, rescheduled, completed, cancelled, no_show
+interview_result   : selected, rejected, on_hold, next_round
+offer              : draft, pending_approval, approved, rejected, sent, accepted, declined,
+                     revised, expired, withdrawn, joined, no_show
+approval_action    : submitted, approved, rejected, cancelled
+
+Rule: never hard-code status ids in code. Look up by (module, code), e.g.
+Status::idFor('offer', 'accepted') — cache the lookup.
+
+=====================================================================
+ACCESS MANAGEMENT
+=====================================================================
+
+1. roles
+--------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(100), NOT NULL, UNIQUE
+- status_id: BIGINT UNSIGNED, FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at
+
+2. permissions
+--------------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(150), NOT NULL, UNIQUE (e.g. offers.approve)
+- description: VARCHAR(255), NULL
+- created_at, updated_at
+
+3. role_permissions
+-------------------
+- role_id: FK -> roles.id, PK part (CASCADE)
+- permission_id: FK -> permissions.id, PK part (CASCADE)
+- Composite PK (role_id, permission_id)
+(Alternative: spatie/laravel-permission.)
+
+4. users
+--------
+- id: BIGINT UNSIGNED, PK
+- role_id: FK -> roles.id, NOT NULL
+- first_name: VARCHAR(100), NOT NULL
+- last_name: VARCHAR(100), NULL
+- email: VARCHAR(255), NOT NULL, UNIQUE
+- phone: VARCHAR(30), NULL
+- password: VARCHAR(255), NOT NULL
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- email_verified_at: TIMESTAMP, NULL
+- remember_token: VARCHAR(100), NULL
+- created_at, updated_at, deleted_at
+
+=====================================================================
+MASTERS
+=====================================================================
+
+5. countries
+------------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(150), NOT NULL, UNIQUE
+- code: CHAR(2), NOT NULL, UNIQUE
+- flag: VARCHAR(255), NULL
+- currency_code: CHAR(3), NULL
+- currency_name: VARCHAR(100), NULL
+- currency_symbol: VARCHAR(10), NULL
+- dial_code: VARCHAR(10), NULL
+- timezone: VARCHAR(100), NULL
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at
+
+6. practice_areas
+-----------------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(150), NOT NULL
+- code: VARCHAR(50), NOT NULL, UNIQUE
+- head_id: FK -> users.id, NULL (SET NULL)
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at
+
+7. clients
+----------
+- id: BIGINT UNSIGNED, PK
+- country_id: FK -> countries.id, NOT NULL
+- created_by: FK -> users.id, NOT NULL
+- name: VARCHAR(200), NOT NULL
+- email: VARCHAR(255), NULL
+- phone: VARCHAR(30), NULL
+- address: TEXT, NULL
+- logo_path: VARCHAR(500), NULL
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at, deleted_at
+
+8. client_managers
+------------------
+- id: BIGINT UNSIGNED, PK
+- client_id: FK -> clients.id, NOT NULL
+- created_by: FK -> users.id, NOT NULL
+- name: VARCHAR(200), NOT NULL
+- email: VARCHAR(255), NULL
+- phone: VARCHAR(30), NULL
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at, deleted_at
+
+9. vendors
+----------
+- id: BIGINT UNSIGNED, PK
+- created_by: FK -> users.id, NOT NULL
+- name: VARCHAR(200), NOT NULL
+- email: VARCHAR(255), NULL
+- phone: VARCHAR(30), NULL
+- contact_person: VARCHAR(200), NULL
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at, deleted_at
+
+10. skills
+----------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(150), NOT NULL, UNIQUE
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at
+
+11. hiring_stages
+-----------------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(100), NOT NULL (Sourced, Screening, Client Submission, L1, L2, HR, Offer, Joined)
+- code: VARCHAR(50), NOT NULL, UNIQUE
+- sort_order: SMALLINT UNSIGNED, NOT NULL, DEFAULT 0
+- is_terminal: TINYINT(1), NOT NULL, DEFAULT 0
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_at, updated_at
+Note: stage = WHERE the application is in the pipeline; status = the state of the record.
+
+=====================================================================
+JOBS
+=====================================================================
+
+12. jobs
+--------
+- id: BIGINT UNSIGNED, PK
+- job_code: VARCHAR(50), NOT NULL, UNIQUE
+- country_id: FK -> countries.id, NOT NULL
+- client_id: FK -> clients.id, NULL (NULL = internal job)
+- client_manager_id: FK -> client_managers.id, NULL (SET NULL)
+- practice_area_id: FK -> practice_areas.id, NOT NULL
+- created_by: FK -> users.id, NOT NULL
+- job_title: VARCHAR(200), NOT NULL
+- total_experience: DECIMAL(4,1), NULL
+- relevant_experience: DECIMAL(4,1), NULL
+- budget_min: DECIMAL(12,2), NULL
+- budget_max: DECIMAL(12,2), NULL
+- budget_currency_code: CHAR(3), NULL
+- requirement_date: DATE, NULL
+- contract_duration: VARCHAR(100), NULL
+- work_mode: VARCHAR(30), NULL (onsite, remote, hybrid)
+- work_location: VARCHAR(200), NULL
+- employment_type: VARCHAR(30), NULL (full_time, contract, c2h, intern)
+- no_of_positions: INT UNSIGNED, NOT NULL, DEFAULT 1
+- positions_filled: INT UNSIGNED, NOT NULL, DEFAULT 0
+- priority: VARCHAR(20), NOT NULL, DEFAULT 'medium' (low, medium, high, urgent)
+- notice_period_days: SMALLINT UNSIGNED, NULL
+- job_description: LONGTEXT, NULL
+- jd_file_path: VARCHAR(500), NULL
+- status_id: FK -> statuses.id (module 'job'), NOT NULL
+- closed_at: TIMESTAMP, NULL
+- closed_reason: VARCHAR(255), NULL
+- created_at, updated_at, deleted_at
+- INDEX (status_id, priority), INDEX (client_id)
+Removed: `internal` flag (derived from client_id IS NULL), free-text skillset columns (use job_skills),
+single recruiter_id / vendor_id (use pivots below).
+
+13. job_skills
+--------------
+- job_id: FK -> jobs.id, PK part (CASCADE)
+- skill_id: FK -> skills.id, PK part
+- skill_type: VARCHAR(20), NOT NULL (primary, secondary, optional)
+- created_at, updated_at
+
+14. job_recruiters
+------------------
+- job_id: FK -> jobs.id, PK part (CASCADE)
+- user_id: FK -> users.id, PK part
+- is_primary: TINYINT(1), NOT NULL, DEFAULT 0
+- assigned_at: TIMESTAMP, NULL
+- created_at, updated_at
+
+15. job_vendors
+---------------
+- job_id: FK -> jobs.id, PK part (CASCADE)
+- vendor_id: FK -> vendors.id, PK part
+- assigned_at: TIMESTAMP, NULL
+- created_at, updated_at
+
+=====================================================================
+CANDIDATES / RESUME MASTER
+=====================================================================
+
+16. candidates
+--------------
+- id: BIGINT UNSIGNED, PK
+- candidate_code: VARCHAR(50), NOT NULL, UNIQUE
+- created_by: FK -> users.id, NOT NULL
+- vendor_id: FK -> vendors.id, NULL (SET NULL)
+- first_name: VARCHAR(100), NOT NULL
+- last_name: VARCHAR(100), NULL
+- email: VARCHAR(255), NULL, INDEX
+- phone: VARCHAR(30), NULL, INDEX
+- gender: VARCHAR(30), NULL
+- current_designation: VARCHAR(200), NULL
+- current_company: VARCHAR(200), NULL
+- total_experience: DECIMAL(4,1), NULL
+- relevant_experience: DECIMAL(4,1), NULL
+- current_ctc: DECIMAL(12,2), NULL
+- expected_ctc: DECIMAL(12,2), NULL
+- ctc_currency_code: CHAR(3), NULL
+- notice_period_days: SMALLINT UNSIGNED, NULL
+- resume_source: VARCHAR(50), NULL (portal, referral, vendor, direct, linkedin)
+- referral_name: VARCHAR(200), NULL
+- preferred_location: VARCHAR(200), NULL
+- current_location: VARCHAR(200), NULL
+- resume_text: LONGTEXT, NULL (parsed resume text for keyword search)
+- status_id: FK -> statuses.id (module 'candidate'), NOT NULL
+- created_at, updated_at, deleted_at
+- FULLTEXT (first_name, last_name, current_designation, resume_text)
+
+17. candidate_educations
+------------------------
+- id, candidate_id (FK -> candidates.id, CASCADE)
+- qualification: VARCHAR(150), NOT NULL
+- institution: VARCHAR(255), NULL
+- specialization: VARCHAR(200), NULL
+- year_of_passing: SMALLINT UNSIGNED, NULL
+- percentage_or_cgpa: DECIMAL(6,2), NULL
+- document_path: VARCHAR(500), NULL
+- created_at, updated_at
+
+18. candidate_employments
+-------------------------
+- id, candidate_id (FK -> candidates.id, CASCADE)
+- company_name: VARCHAR(255), NOT NULL
+- designation: VARCHAR(200), NULL
+- start_date: DATE, NULL
+- end_date: DATE, NULL
+- is_current: TINYINT(1), NOT NULL, DEFAULT 0
+- salary: DECIMAL(12,2), NULL
+- currency_code: CHAR(3), NULL
+- responsibilities: TEXT, NULL
+- created_at, updated_at
+
+19. candidate_personal_details   (collect after offer acceptance; restricted access)
+------------------------------
+- id, candidate_id (FK, UNIQUE, CASCADE)
+- date_of_birth: DATE, NULL
+- marital_status: VARCHAR(30), NULL
+- blood_group: VARCHAR(5), NULL
+- present_address: TEXT, NULL
+- permanent_address: TEXT, NULL
+- emergency_contact_name: VARCHAR(200), NULL
+- emergency_contact_phone: VARCHAR(30), NULL
+- created_at, updated_at
+
+20. candidate_family_members     (restricted access)
+----------------------------
+- id, candidate_id (FK, CASCADE)
+- relationship: VARCHAR(50), NOT NULL
+- full_name: VARCHAR(200), NOT NULL
+- date_of_birth: DATE, NULL
+- occupation: VARCHAR(200), NULL
+- created_at, updated_at
+
+21. candidate_documents
+-----------------------
+- id, candidate_id (FK -> candidates.id, RESTRICT)
+- uploaded_by: FK -> users.id, NOT NULL
+- document_type: VARCHAR(50), NOT NULL (resume, photo, certificate, id_proof, relieving_letter, ...)
+- original_filename: VARCHAR(255), NOT NULL
+- file_path: VARCHAR(500), NOT NULL
+- mime_type: VARCHAR(100), NULL
+- file_size_bytes: BIGINT UNSIGNED, NULL
+- version: INT UNSIGNED, NOT NULL, DEFAULT 1
+- is_current: TINYINT(1), NOT NULL, DEFAULT 1
+- status_id: FK -> statuses.id (module 'document'), NOT NULL
+- verified_by: FK -> users.id, NULL
+- verified_at: TIMESTAMP, NULL
+- created_at, updated_at
+- INDEX (candidate_id, document_type, is_current)
+
+22. candidate_skills
+--------------------
+- candidate_id: FK -> candidates.id, PK part (CASCADE)
+- skill_id: FK -> skills.id, PK part
+- skill_type: VARCHAR(20), NOT NULL (primary, secondary, other)
+- experience_months: SMALLINT UNSIGNED, NULL
+- created_at, updated_at
+
+=====================================================================
+HIRING PROCESS
+=====================================================================
+
+23. job_applications
+--------------------
+- id: BIGINT UNSIGNED, PK
+- candidate_id: FK -> candidates.id, NOT NULL (RESTRICT)
+- job_id: FK -> jobs.id, NOT NULL (RESTRICT)
+- recruiter_id: FK -> users.id, NULL (SET NULL)
+- vendor_id: FK -> vendors.id, NULL (SET NULL)
+- current_stage_id: FK -> hiring_stages.id, NOT NULL
+- status_id: FK -> statuses.id (module 'application'), NOT NULL
+- source: VARCHAR(50), NULL
+- applied_at: TIMESTAMP, NULL
+- rejection_reason: TEXT, NULL
+- notes: TEXT, NULL
+- created_by: FK -> users.id, NOT NULL
+- created_at, updated_at
+- UNIQUE (candidate_id, job_id)
+- INDEX (job_id, current_stage_id, status_id)
+
+24. application_stage_history   (insert-only audit log)
+-----------------------------
+- id: BIGINT UNSIGNED, PK
+- application_id: FK -> job_applications.id, NOT NULL (RESTRICT)
+- from_stage_id: FK -> hiring_stages.id, NULL
+- to_stage_id: FK -> hiring_stages.id, NOT NULL
+- from_status_id: FK -> statuses.id, NULL
+- to_status_id: FK -> statuses.id, NOT NULL
+- comments: TEXT, NULL
+- changed_by: FK -> users.id, NOT NULL
+- changed_at: TIMESTAMP, NOT NULL
+- created_at, updated_at
+
+25. interviews
+--------------
+- id: BIGINT UNSIGNED, PK
+- application_id: FK -> job_applications.id, NOT NULL (RESTRICT)
+- stage_id: FK -> hiring_stages.id, NULL
+- round_number: SMALLINT UNSIGNED, NOT NULL, DEFAULT 1
+- interview_type: VARCHAR(30), NULL (phone, video, in_person, technical, hr, client)
+- scheduled_at: DATETIME, NULL
+- timezone: VARCHAR(100), NULL
+- duration_minutes: SMALLINT UNSIGNED, NULL
+- meeting_link: VARCHAR(500), NULL
+- location: VARCHAR(255), NULL
+- status_id: FK -> statuses.id (module 'interview'), NOT NULL
+- result_status_id: FK -> statuses.id (module 'interview_result'), NULL
+- overall_feedback: TEXT, NULL
+- scheduled_by: FK -> users.id, NOT NULL
+- created_at, updated_at
+
+26. interview_panelists
+-----------------------
+- id: BIGINT UNSIGNED, PK
+- interview_id: FK -> interviews.id, NOT NULL (CASCADE)
+- user_id: FK -> users.id, NULL (internal interviewer)
+- external_name: VARCHAR(200), NULL (client interviewer)
+- external_email: VARCHAR(255), NULL
+- rating: TINYINT UNSIGNED, NULL (1-5)
+- result_status_id: FK -> statuses.id (module 'interview_result'), NULL
+- feedback: TEXT, NULL
+- submitted_at: TIMESTAMP, NULL
+- created_at, updated_at
+
+=====================================================================
+OFFERS / OFFER LETTER
+=====================================================================
+
+27. offer_letter_templates
+--------------------------
+- id: BIGINT UNSIGNED, PK
+- name: VARCHAR(150), NOT NULL
+- country_id: FK -> countries.id, NULL
+- employment_type: VARCHAR(30), NULL
+- subject: VARCHAR(255), NULL (email subject)
+- body: LONGTEXT, NOT NULL (HTML with placeholders: {{candidate_name}}, {{designation}},
+        {{offered_ctc}}, {{joining_date}}, {{work_location}}, {{valid_until}}, {{salary_table}})
+- version: INT UNSIGNED, NOT NULL, DEFAULT 1
+- status_id: FK -> statuses.id (module 'general'), NOT NULL
+- created_by: FK -> users.id, NOT NULL
+- created_at, updated_at, deleted_at
+
+28. offers
+----------
+- id: BIGINT UNSIGNED, PK
+- offer_number: VARCHAR(50), NOT NULL, UNIQUE
+- application_id: FK -> job_applications.id, NOT NULL (RESTRICT)
+- template_id: FK -> offer_letter_templates.id, NULL (SET NULL)
+- revision_no: SMALLINT UNSIGNED, NOT NULL, DEFAULT 1
+- parent_offer_id: FK -> offers.id, NULL (previous revision)
+- is_current: TINYINT(1), NOT NULL, DEFAULT 1
+- designation: VARCHAR(200), NOT NULL
+- employment_type: VARCHAR(30), NULL
+- work_location: VARCHAR(200), NULL
+- reporting_manager_id: FK -> users.id, NULL
+- probation_months: TINYINT UNSIGNED, NULL
+- offered_ctc: DECIMAL(12,2), NOT NULL
+- currency_code: CHAR(3), NOT NULL
+- offer_date: DATE, NULL
+- valid_until: DATE, NULL
+- joining_date: DATE, NULL (proposed)
+- actual_joining_date: DATE, NULL
+- status_id: FK -> statuses.id (module 'offer'), NOT NULL
+- offer_letter_path: VARCHAR(500), NULL (generated PDF)
+- sent_at: TIMESTAMP, NULL
+- responded_at: TIMESTAMP, NULL
+- decline_reason: TEXT, NULL
+- created_by: FK -> users.id, NOT NULL
+- created_at, updated_at
+- INDEX (application_id, is_current), INDEX (status_id)
+
+29. offer_salary_components
+---------------------------
+- id: BIGINT UNSIGNED, PK
+- offer_id: FK -> offers.id, NOT NULL (CASCADE)
+- component_name: VARCHAR(100), NOT NULL (Basic, HRA, Special Allowance, PF, Bonus, ...)
+- component_type: VARCHAR(20), NOT NULL (earning, deduction, benefit)
+- monthly_amount: DECIMAL(12,2), NULL
+- annual_amount: DECIMAL(12,2), NOT NULL
+- sort_order: SMALLINT UNSIGNED, NOT NULL, DEFAULT 0
+- created_at, updated_at
+
+30. offer_approvals
+-------------------
+- id: BIGINT UNSIGNED, PK
+- offer_id: FK -> offers.id, NOT NULL (RESTRICT)
+- level: TINYINT UNSIGNED, NOT NULL, DEFAULT 1
+- approver_id: FK -> users.id, NOT NULL
+- action_status_id: FK -> statuses.id (module 'approval_action'), NOT NULL
+- comments: TEXT, NULL
+- acted_at: TIMESTAMP, NULL
+- created_at, updated_at
+
+=====================================================================
+AUDIT
+=====================================================================
+
+31. activity_logs   (or spatie/laravel-activitylog)
+-----------------
+- id: BIGINT UNSIGNED, PK
+- user_id: FK -> users.id, NULL
+- subject_type: VARCHAR(100), NOT NULL (e.g. App\Models\Offer)
+- subject_id: BIGINT UNSIGNED, NOT NULL
+- action: VARCHAR(50), NOT NULL (created, updated, status_changed, email_sent, downloaded)
+- properties: JSON, NULL (old/new values)
+- ip_address: VARCHAR(45), NULL
+- created_at
+- INDEX (subject_type, subject_id)
+
+=====================================================================
+RELATIONSHIPS SUMMARY
+=====================================================================
+statuses        1-N  every table with status_id
+jobs            1-N  job_applications, job_skills, job_recruiters, job_vendors
+candidates      1-N  job_applications, documents, educations, employments, skills, family_members
+candidates      1-1  candidate_personal_details
+job_applications 1-N application_stage_history, interviews, offers
+interviews      1-N  interview_panelists
+offers          1-N  offer_salary_components, offer_approvals
+offers          1-N  offers (revisions via parent_offer_id)
+offer_letter_templates 1-N offers
+
+=====================================================================
+HIRING FLOW
+=====================================================================
+1. Create job (status: draft -> open), assign recruiters/vendors, add skills.
+2. Add candidate + upload resume (candidate_documents, document_type = resume).
+3. Tag candidate to job -> job_applications (stage: Sourced, status: active). Log stage history.
+4. Move through stages (Screening -> Client Submission -> L1 -> L2 -> HR). Every move = 1 history row.
+5. Schedule interviews per round; panelists submit feedback; set result.
+6. Selected -> create offer (draft) from template + salary components.
+7. Approval (offer_approvals) -> approved -> generate PDF -> sent.
+8. Candidate accepts/declines. Revision = new offers row, old row is_current = 0, status 'revised'.
+9. On joining: offer status 'joined', application status 'hired', jobs.positions_filled + 1,
+   candidate status 'placed'; close job when positions_filled = no_of_positions.
+
+Implementation notes
+--------------------
+1. Seed `statuses` and `hiring_stages` in a seeder BEFORE other seeders; all status_id columns NOT NULL.
+2. Validate status_id belongs to the correct module (Form Request / model observer).
+3. Do stage/status changes inside a DB transaction together with the history insert.
+4. Candidate email is indexed, not unique — decide a duplicate policy (email + phone check on create).
+5. Do not store Aadhaar/PAN unless essential; if required, use Laravel encrypted casts.
